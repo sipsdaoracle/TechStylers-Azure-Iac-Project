@@ -1,0 +1,833 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "virtualMachines_vm_web_dev_001_name": {
+            "defaultValue": "vm-web-dev-001",
+            "type": "String"
+        },
+        "virtualMachines_vm_db_dev_001_name": {
+            "defaultValue": "vm-db-dev-001",
+            "type": "String"
+        },
+        "virtualNetworks_vnet_spoke_dev_001_name": {
+            "defaultValue": "vnet-spoke-dev-001",
+            "type": "String"
+        },
+        "networkInterfaces_vm_web_dev_001480_z1_name": {
+            "defaultValue": "nic-web-dev-001",
+            "type": "String"
+        },
+        "networkInterfaces_vm_db_dev_002480_z1_name": {
+            "defaultValue": "nic-db-dev-001",
+            "type": "String"
+        },
+        "nsg-web-001": {
+            "defaultValue": "nsg-web-001",
+            "type": "String"
+        },
+        "snet-dev-001": {
+            "defaultValue": "snet-web-001",
+            "type": "String"
+        },
+        "snet-dev-002": {
+            "defaultValue": "snet-db-001",
+            "type": "String"
+        },
+        "adminPassword": {
+            "defaultValue": "Jungl3M@n",
+            "type": "String"
+        },
+        "storageAccounts_stprojectdev001_name": {
+            "defaultValue": "stprojectdev001",
+            "type": "String"
+        },
+        "privateDnsZones_privatelink_blob_core_windows_net_name": {
+            "defaultValue": "privatelink.blob.core.windows.net",
+            "type": "String"
+        },
+        "privateEndpoints_pe_proj_dev_001_name": {
+            "defaultValue": "pe-proj-dev-001",
+            "type": "String"
+        },
+        "virtualNetworks_vnet_hub_dev_001_name": {
+            "defaultValue": "vnet-hub-dev-001",
+            "type": "String"
+        },
+        "publicIPAddresses_pip_appgw_proj_001_name": {
+            "defaultValue": "pip-appgw-proj-001",
+            "type": "String"
+        },
+        "applicationGateways_appgw_proj_dev_001_name": {
+            "defaultValue": "appgw-proj-dev-001",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('nsg-web-001')]",
+            "location": "southafricanorth",
+            "tags": {
+                "environment": "development"
+            },
+            "properties": {
+                "securityRules": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('virtualNetworks_vnet_spoke_dev_001_name')]",
+            "location": "southafricanorth",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.10.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "snet-dev-001",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_spoke_dev_001_name'), 'snet-dev-001')]",
+                        "properties": {
+                            "addressPrefix": "10.10.0.0/24",
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    },
+                    {
+                        "name": "snet-dev-002",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_spoke_dev_001_name'), 'snet-dev-002')]",
+                        "properties": {
+                            "addressPrefix": "10.10.1.0/24",
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    }
+                ],
+                "virtualNetworkPeerings": [],
+                "enableDdosProtection": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('virtualNetworks_vnet_spoke_dev_001_name'), '/snet-dev-001')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet_spoke_dev_001_name'))]"
+            ],
+            "properties": {
+                "addressPrefix": "10.10.0.0/24",
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('virtualNetworks_vnet_spoke_dev_001_name'), '/snet-dev-002')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet_spoke_dev_001_name'))]"
+            ],
+            "properties": {
+                "addressPrefix": "10.10.10.0/24",
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2024-03-01",
+            "name": "[parameters('virtualMachines_vm_web_dev_001_name')]",
+            "location": "southafricanorth",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_vm_web_dev_001480_z1_name'))]"
+            ],
+            "zones": [
+                "1"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_D2s_v3"
+                },
+                "additionalCapabilities": {
+                    "hibernationEnabled": false
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftWindowsServer",
+                        "offer": "WindowsServer",
+                        "sku": "2019-datacenter-gensecond",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Windows",
+                        "name": "[concat(parameters('virtualMachines_vm_web_dev_001_name'), '_OsDisk_1_f7fbb74a12b34b25ab3fecfa8ae5e524')]",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "managedDisk": {
+                            "storageAccountType": "Premium_LRS"
+                        },
+                        "deleteOption": "Delete",
+                        "diskSizeGB": 127
+                    },
+                    "dataDisks": [],
+                    "diskControllerType": "SCSI"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('virtualMachines_vm_web_dev_001_name')]",
+                    "adminUsername": "localadmin",
+                    "adminPassword": "[parameters('adminPassword')]",
+                    "windowsConfiguration": {
+                        "provisionVMAgent": true,
+                        "enableAutomaticUpdates": true,
+                        "patchSettings": {
+                            "patchMode": "AutomaticByOS",
+                            "assessmentMode": "ImageDefault",
+                            "enableHotpatching": false
+                        }
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "securityProfile": {
+                    "uefiSettings": {
+                        "secureBootEnabled": true,
+                        "vTpmEnabled": true
+                    },
+                    "securityType": "TrustedLaunch"
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_vm_web_dev_001480_z1_name'))]",
+                            "properties": {
+                                "deleteOption": "Detach"
+                            }
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": true
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2024-03-01",
+            "name": "[parameters('virtualMachines_vm_db_dev_001_name')]",
+            "location": "southafricanorth",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_vm_db_dev_002480_z1_name'))]"
+            ],
+            "zones": [
+                "1"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_D2s_v3"
+                },
+                "additionalCapabilities": {
+                    "hibernationEnabled": false
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftWindowsServer",
+                        "offer": "WindowsServer",
+                        "sku": "2019-datacenter-gensecond",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Windows",
+                        "name": "[concat(parameters('virtualMachines_vm_db_dev_001_name'), '_OsDisk_3_f7fbb74a12b34b25ab3fecfa8ae5e524')]",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "managedDisk": {
+                            "storageAccountType": "Premium_LRS"
+                        },
+                        "deleteOption": "Delete",
+                        "diskSizeGB": 127
+                    },
+                    "dataDisks": [],
+                    "diskControllerType": "SCSI"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('virtualMachines_vm_db_dev_001_name')]",
+                    "adminUsername": "localadmin",
+                    "adminPassword": "[parameters('adminPassword')]",
+                    "windowsConfiguration": {
+                        "provisionVMAgent": true,
+                        "enableAutomaticUpdates": true,
+                        "patchSettings": {
+                            "patchMode": "AutomaticByOS",
+                            "assessmentMode": "ImageDefault",
+                            "enableHotpatching": false
+                        }
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "securityProfile": {
+                    "uefiSettings": {
+                        "secureBootEnabled": true,
+                        "vTpmEnabled": true
+                    },
+                    "securityType": "TrustedLaunch"
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_vm_db_dev_002480_z1_name'))]",
+                            "properties": {
+                                "deleteOption": "Detach"
+                            }
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": true
+                    }
+                }
+            }
+        },
+     
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('networkInterfaces_vm_web_dev_001480_z1_name')]",
+            "location": "southafricanorth",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_spoke_dev_001_name'), 'snet-dev-001')]",
+                "[resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name'))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsg-web-001'))]"
+            ],
+            "kind": "Regular",
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "id": "[concat(resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_vm_web_dev_001480_z1_name')), '/ipConfigurations/ipconfig1')]",
+                        "type": "Microsoft.Network/networkInterfaces/ipConfigurations",
+                        "properties": {
+                            "privateIPAddress": "10.10.0.4",
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_spoke_dev_001_name'), 'snet-dev-001')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4",
+                            "applicationGatewayBackendAddressPools": [
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/backendAddressPools/bkp-appgw-proj-001')]"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "dnsSettings": {
+                    "dnsServers": []
+                },
+                "enableAcceleratedNetworking": true,
+                "enableIPForwarding": false,
+                "disableTcpStateTracking": false,
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsg-web-001'))]"
+                },
+                "nicType": "Standard",
+                "auxiliaryMode": "None",
+                "auxiliarySku": "None"
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('networkInterfaces_vm_db_dev_002480_z1_name')]",
+            "location": "southafricanorth",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_spoke_dev_001_name'), 'snet-dev-002')]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsg-web-001'))]"
+            ],
+            "kind": "Regular",
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "id": "[concat(resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_vm_db_dev_002480_z1_name')), '/ipConfigurations/ipconfig1')]",
+                        "type": "Microsoft.Network/networkInterfaces/ipConfigurations",
+                        "properties": {
+                            "privateIPAddress": "10.10.10.4",
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_spoke_dev_001_name'), 'snet-dev-002')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "dnsSettings": {
+                    "dnsServers": []
+                },
+                "enableAcceleratedNetworking": true,
+                "enableIPForwarding": false,
+                "disableTcpStateTracking": false,
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsg-web-001'))]"
+                },
+                "nicType": "Standard",
+                "auxiliaryMode": "None",
+                "auxiliarySku": "None"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2023-05-01",
+            "name": "[parameters('storageAccounts_stprojectdev001_name')]",
+            "location": "southafricanorth",
+            "sku": {
+                "name": "Standard_ZRS",
+                "tier": "Standard"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "dnsEndpointType": "Standard",
+                "defaultToOAuthAuthentication": false,
+                "publicNetworkAccess": "Disabled",
+                "allowCrossTenantReplication": false,
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": false,
+                "allowSharedKeyAccess": true,
+                "largeFileSharesState": "Enabled",
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Deny"
+                },
+                "supportsHttpsTrafficOnly": true,
+                "encryption": {
+                    "requireInfrastructureEncryption": false,
+                    "services": {
+                        "file": {
+                            "keyType": "Account",
+                            "enabled": true
+                        },
+                        "blob": {
+                            "keyType": "Account",
+                            "enabled": true
+                        }
+                    },
+                    "keySource": "Microsoft.Storage"
+                },
+                "accessTier": "Hot"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/blobServices",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(parameters('storageAccounts_stprojectdev001_name'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_stprojectdev001_name'))]"
+            ],
+            "sku": {
+                "name": "Standard_ZRS",
+                "tier": "Standard"
+            },
+            "properties": {
+                "containerDeleteRetentionPolicy": {
+                    "enabled": true,
+                    "days": 7
+                },
+                "cors": {
+                    "corsRules": []
+                },
+                "deleteRetentionPolicy": {
+                    "allowPermanentDelete": false,
+                    "enabled": true,
+                    "days": 7
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/fileServices",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(parameters('storageAccounts_stprojectdev001_name'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_stprojectdev001_name'))]"
+            ],
+            "sku": {
+                "name": "Standard_ZRS",
+                "tier": "Standard"
+            },
+            "properties": {
+                "protocolSettings": {
+                    "smb": {}
+                },
+                "cors": {
+                    "corsRules": []
+                },
+                "shareDeleteRetentionPolicy": {
+                    "enabled": true,
+                    "days": 7
+                }
+            }
+        },
+       
+        {
+            "type": "Microsoft.Storage/storageAccounts/queueServices",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(parameters('storageAccounts_stprojectdev001_name'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_stprojectdev001_name'))]"
+            ],
+            "properties": {
+                "cors": {
+                    "corsRules": []
+                }
+            }
+        },
+
+        {
+            "type": "Microsoft.Storage/storageAccounts/tableServices",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(parameters('storageAccounts_stprojectdev001_name'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_stprojectdev001_name'))]"
+            ],
+            "properties": {
+                "cors": {
+                    "corsRules": []
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2020-06-01",
+            "name": "[parameters('privateDnsZones_privatelink_blob_core_windows_net_name')]",
+            "location": "global",
+            "properties": {}
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/A",
+            "apiVersion": "2020-06-01",
+            "name": "[concat(parameters('privateDnsZones_privatelink_blob_core_windows_net_name'), '/stprojectdev001')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZones_privatelink_blob_core_windows_net_name'))]"
+            ],
+            "properties": {
+                "metadata": {
+                    "creator": "created by private endpoint pe-proj-dev-001 with resource guid 8f354b30-1030-4b53-acf2-00e578f4419f"
+                },
+                "ttl": 10,
+                "aRecords": [
+                    {
+                        "ipv4Address": "10.10.10.4"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/SOA",
+            "apiVersion": "2020-06-01",
+            "name": "[concat(parameters('privateDnsZones_privatelink_blob_core_windows_net_name'), '/@')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZones_privatelink_blob_core_windows_net_name'))]"
+            ],
+            "properties": {
+                "ttl": 3600,
+                "soaRecord": {
+                    "email": "azureprivatedns-host.microsoft.com",
+                    "expireTime": 2419200,
+                    "host": "azureprivatedns.net",
+                    "minimumTtl": 10,
+                    "refreshTime": 3600,
+                    "retryTime": 300,
+                    "serialNumber": 1
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+            "apiVersion": "2020-06-01",
+            "name": "[concat(parameters('privateDnsZones_privatelink_blob_core_windows_net_name'), '/hiptiqm5mkrli')]",
+            "location": "global",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZones_privatelink_blob_core_windows_net_name'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet_spoke_dev_001_name'))]"
+            ],
+            "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet_spoke_dev_001_name'))]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('privateEndpoints_pe_proj_dev_001_name')]",
+            "location": "southafricanorth",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_stprojectdev001_name'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_spoke_dev_001_name'), 'snet-dev-002')]"
+            ],
+            "properties": {
+                "privateLinkServiceConnections": [
+                    {
+                        "name": "[parameters('privateEndpoints_pe_proj_dev_001_name')]",
+                        "id": "[concat(resourceId('Microsoft.Network/privateEndpoints', parameters('privateEndpoints_pe_proj_dev_001_name')), concat('/privateLinkServiceConnections/', parameters('privateEndpoints_pe_proj_dev_001_name')))]",
+                        "properties": {
+                            "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_stprojectdev001_name'))]",
+                            "groupIds": [
+                                "blob"
+                            ],
+                            "privateLinkServiceConnectionState": {
+                                "status": "Approved",
+                                "description": "Auto-Approved",
+                                "actionsRequired": "None"
+                            }
+                        }
+                    }
+                ],
+                "manualPrivateLinkServiceConnections": [],
+                "customNetworkInterfaceName": "[concat(parameters('privateEndpoints_pe_proj_dev_001_name'), '-nic')]",
+                "subnet": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_spoke_dev_001_name'), 'snet-dev-002')]"
+                },
+                "ipConfigurations": [],
+                "customDnsConfigs": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('privateEndpoints_pe_proj_dev_001_name'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', parameters('privateEndpoints_pe_proj_dev_001_name'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZones_privatelink_blob_core_windows_net_name'))]"
+            ],
+            "properties": {
+                "privateDnsZoneConfigs": [
+                    {
+                        "name": "privatelink-blob-core-windows-net",
+                        "properties": {
+                            "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZones_privatelink_blob_core_windows_net_name'))]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('virtualNetworks_vnet_hub_dev_001_name')]",
+            "location": "southafricanorth",
+            "dependsOn": [
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.11.0.0/16"
+                        
+                    ]
+                },
+                "subnets": [
+
+                    {
+                        "name": "sn-appgw",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_hub_dev_001_name'), 'sn-appgw')]",
+                        "properties": {
+                            "addressPrefix": "10.11.1.0/24",
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    }
+                ],
+                "virtualNetworkPeerings": [],
+                "enableDdosProtection": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('virtualNetworks_vnet_hub_dev_001_name'), '/sn-appgw')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet_hub_dev_001_name'))]"
+            ],
+            "properties": {
+                "addressPrefix": "10.11.1.0/24",
+               
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('publicIPAddresses_pip_appgw_proj_001_name')]",
+            "location": "southafricanorth",
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "zones": [
+                "1",
+                "2",
+                "3"
+            ],
+            "properties": {
+                "ipAddress": "20.164.163.110",
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 4,
+                "ipTags": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/applicationGateways",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('applicationGateways_appgw_proj_dev_001_name')]",
+            "location": "southafricanorth",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_hub_dev_001_name'), 'sn-appgw')]",
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_pip_appgw_proj_001_name'))]"
+            ],
+            "zones": [
+                "1",
+                "2",
+                "3"
+            ],
+            "properties": {
+                "sku": {
+                    "name": "Standard_v2",
+                    "tier": "Standard_v2",
+                    "family": "Generation_1"
+                },
+                "gatewayIPConfigurations": [
+                    {
+                        "name": "appGatewayIpConfig",
+                        "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/gatewayIPConfigurations/appGatewayIpConfig')]",
+                        "properties": {
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet_hub_dev_001_name'), 'sn-appgw')]"
+                            }
+                        }
+                    }
+                ],
+                "sslCertificates": [],
+                "trustedRootCertificates": [],
+                "trustedClientCertificates": [],
+                "sslProfiles": [],
+                "frontendIPConfigurations": [
+                    {
+                        "name": "appGwPublicFrontendIpIPv4",
+                        "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/frontendIPConfigurations/appGwPublicFrontendIpIPv4')]",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_pip_appgw_proj_001_name'))]"
+                            }
+                        }
+                    }
+                ],
+                "frontendPorts": [
+                    {
+                        "name": "port_80",
+                        "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/frontendPorts/port_80')]",
+                        "properties": {
+                            "port": 80
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "bkp-appgw-proj-001",
+                        "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/backendAddressPools/bkp-appgw-proj-001')]",
+                        "properties": {
+                            "backendAddresses": []
+                        }
+                    }
+                ],
+                "loadDistributionPolicies": [],
+                "backendHttpSettingsCollection": [
+                    {
+                        "name": "settings-bkp-appgw",
+                        "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/backendHttpSettingsCollection/settings-bkp-appgw')]",
+                        "properties": {
+                            "port": 80,
+                            "protocol": "Http",
+                            "cookieBasedAffinity": "Disabled",
+                            "pickHostNameFromBackendAddress": false,
+                            "requestTimeout": 20
+                        }
+                    }
+                ],
+                "backendSettingsCollection": [],
+                "httpListeners": [
+                    {
+                        "name": "listener-appgw-proj-001",
+                        "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/httpListeners/listener-appgw-proj-001')]",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/frontendIPConfigurations/appGwPublicFrontendIpIPv4')]"
+                            },
+                            "frontendPort": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/frontendPorts/port_80')]"
+                            },
+                            "protocol": "Http",
+                            "hostNames": [],
+                            "requireServerNameIndication": false,
+                            "customErrorConfigurations": []
+                        }
+                    }
+                ],
+                "listeners": [],
+                "urlPathMaps": [],
+                "requestRoutingRules": [
+                    {
+                        "name": "rt-appgw-proj-001",
+                        "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/requestRoutingRules/rt-appgw-proj-001')]",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "priority": 1,
+                            "httpListener": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/httpListeners/listener-appgw-proj-001')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/backendAddressPools/bkp-appgw-proj-001')]"
+                            },
+                            "backendHttpSettings": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('applicationGateways_appgw_proj_dev_001_name')), '/backendHttpSettingsCollection/settings-bkp-appgw')]"
+                            }
+                        }
+                    }
+                ],
+                "routingRules": [],
+                "probes": [],
+                "rewriteRuleSets": [],
+                "redirectConfigurations": [],
+                "privateLinkConfigurations": [],
+                "enableHttp2": true,
+                "autoscaleConfiguration": {
+                    "minCapacity": 0,
+                    "maxCapacity": 10
+                }
+            }
+        }
+    ]
+}
